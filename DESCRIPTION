@@ -1,12 +1,16 @@
 Package: ltRISK
-Title: What the Package Does (One Line, Title Case)
+Title: Estimate the Lifetime Risk of Developing or Dying from Cancer
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+    person("Qiong", "Chen", , "chenq08@126.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0003-2401-0046"))
+Description: Estimate the lifetime risk of developing and dying from cancer,
+        as well as age conditional probabilities, using data from Population
+        Based Cancer Registries. Four distinct methods are implemented,
+        including the Adjusted for Multiple Primary method (AMP), the 'current
+        probability' method, the Devan method suggested by SEER, and the
+        traditional cumulative risk with a predefined upper age limit.
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
