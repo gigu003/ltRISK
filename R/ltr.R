@@ -80,9 +80,11 @@ ltr <- function(mi, di, ri, ni, type = "developing", age_width = 5) {
   pxi <- ri / (ri + mi - di)
   var_sx <- sx^2 * wi^2 * pxi * (1 - pxi) / ni
   vari <- (var_hc + ehc^2) * (var_s0 + es0^2) * (var_sx + esx^2) - ehc^2 * es0^2 * esx^2
+  vari[is.na(vari)] <- 0
+  si[is.na(si)] <- 0
   res <- list(age = age, si = si, vari = vari)
-  attr(res, "class") <- c("ltr", "list")
-  return(res)
+  class(res) <- "ltr"
+  res
 }
 
 
@@ -90,20 +92,60 @@ ltr <- function(mi, di, ri, ni, type = "developing", age_width = 5) {
 #'
 #' @param x Object of class 'ltr' outputed by ltr function.
 #' @param sage The initial age of the lifetime risk.
+#' @param mp Multiple
+#' @param decimal Number of decimal
 #'
 #' @return Life time risk and 95% CI.
 #' @export
 #'
-estimate.ltr <- function(x, sage = 0, mp = 100) {
+estimate <- function(x, sage = 0, mp = 100, decimal = 2) {
+  UseMethod("estimate", x)
+}
+
+#' Estimate the lifetime risk and 95% confidence interval
+#'
+#' @param x Object of class 'ltr' outputed by ltr function.
+#' @param sage The initial age of the lifetime risk.
+#' @param mp Multiple
+#' @param decimal Number of decimal
+#'
+#' @return Life time risk and 95% CI.
+#' @export
+#'
+estimate.ltr <- function(x, sage = 0, mp = 100, decimal = 2) {
   pos <- which(x$age == sage)
   ll <- length(x$age)
   p <- sum(x$si[pos:ll])
   var <- sum(x$vari[pos:ll])
-  lower <- (p - 1.96 * sqrt(var))*mp
-  upper <- (p + 1.96 * sqrt(var))*mp
-  p <- p*mp
-  res <- c(p, lower, upper)
-  names(res) <- c("Risk", "Lower_CI", "Upper_CI")
+  var <- ifelse(is.na(var), 0, var)
+  lower <- round((p - 1.96 * sqrt(abs(var)))*mp, decimal)
+  upper <- round((p + 1.96 * sqrt(abs(var)))*mp, decimal)
+  p <- round(p*mp, decimal)
+  res <- list(risk = p, lower = lower, upper = upper)
+  return(res)
+}
+
+
+#' Estimate the lifetime risk and 95% confidence interval
+#'
+#' @param x List that contains elements with class of 'ltr'.
+#' @param sage The initial age of the lifetime risk.
+#' @param mp Multiple
+#' @param decimal Number of decimal
+#'
+#' @return Life time risk and 95% CI.
+#' @export
+#'
+estimate.list <- function(x, sage = 0, mp = 100, decimal = 2){
+  res <- lapply(x, estimate.ltr, sage = sage, mp = mp, decimal = decimal)
+  re_list <- function(old) {
+    risk <- sapply(old, function(x) x[[1]])
+    lower <- sapply(old, function(x) x[[2]])
+    upper <- sapply(old, function(x) x[[3]])
+    new_list <- list(risk = risk, lower = lower, upper = upper)
+    return(new_list)
+  }
+  res <- re_list(res)
   return(res)
 }
 
@@ -115,6 +157,21 @@ estimate.ltr <- function(x, sage = 0, mp = 100) {
 #'          returned by the ltr function.
 #' @return The statistics Z and P of the test result.
 #' @export
+#'
+#'
+ztest <- function(x, y) {
+  UseMethod("ztest", x)
+}
+
+#' Test the difference of lifetime risk between two groups using Z test
+#'
+#' @param x Age conditional probability in group x with class of 'ltr'
+#'          returned by function of ltr.
+#' @param y Age conditional probability in group y with class of 'ltr'
+#'          returned by the ltr function.
+#' @return The statistics Z and P of the test result.
+#' @export
+#'
 #'
 ztest.ltr <- function(x, y) {
   z <- abs(sum(x$si) - sum(y$si)) / sqrt(sum(x$vari) + sum(y$vari))
