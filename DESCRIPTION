@@ -13,4 +13,4 @@ Description: Estimate the lifetime risk of developing and dying from cancer,
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.1
