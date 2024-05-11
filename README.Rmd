@@ -1,22 +1,31 @@
+---
+output: github_document
+---
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
 <img src="man/figures/logo.png" align="right" height="137" alt = "ltRISK" />
 
-# ltRISK
+# ltRISK 
 
 <!-- badges: start -->
+  [![R-CMD-check](https://github.com/gigu003/ltRISK/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/gigu003/ltRISK/actions/workflows/R-CMD-check.yaml)
+  <!-- badges: end -->
 
-[![R-CMD-check](https://github.com/gigu003/ltRISK/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/gigu003/ltRISK/actions/workflows/R-CMD-check.yaml)
-<!-- badges: end -->
-
-This is an R package used to estimate lifetime risk of developing or
-dying from cancer using Population-Based Cancer Registry data.
+This is an R package used to estimate lifetime risk of developing or dying from cancer using Population-Based Cancer Registry data.
 
 ## Installation
 
-You can install the development version of ltRISK from
-[GitHub](https://github.com/) with:
+You can install the development version of ltRISK from [GitHub](https://github.com/) with:
 
 ``` r
 # install.packages("devtools")
@@ -27,7 +36,7 @@ devtools::install_github("gigu003/ltRISK")
 
 This is a basic example which shows you how to solve a common problem:
 
-``` r
+```{r example}
 library(ltRISK)
 ni <- c(
   73872987, 82029530, 72267070, 78303514, 99425613, 119915673, 98068725,
@@ -49,44 +58,22 @@ ri <- c(
 # Estimate the life time risk of developing cancer
 ll <- ltr(mi, di, ri, ni, type = "developing")
 estimate(ll)
-#> $risk
-#> [1] 26.85
-#> 
-#> $lower
-#> [1] 26.7
-#> 
-#> $upper
-#> [1] 27
 
 # Estimate the life time risk of dying from cancer
 dd <- ltr(mi, di, ri, ni, type = "dying")
 estimate(dd)
-#> $risk
-#> [1] 19.8
-#> 
-#> $lower
-#> [1] 19.73
-#> 
-#> $upper
-#> [1] 19.87
 ```
 
-Calculate the cumulative mortality risk with the predefined upper limit
-age of 74 years.
+Calculate the cumulative mortality risk with the predefined upper limit age of 74 years.
 
-``` r
+```{r}
 cum <- cumrate(di, ni, eage = 70)
 cumrisk(cum)
-#> Cumulative Risk (1/100) 
-#>                    16.1
 ```
 
-You can also calculate the cumulative incidence risk with the predefined
-upper limit age of 74 years.
+You can also calculate the cumulative incidence risk with the predefined upper limit age of 74 years.
 
-``` r
+```{r}
 cum <- cumrate(ri, ni, eage = 70)
 cumrisk(cum)
-#> Cumulative Risk (1/100) 
-#>                   24.67
 ```
