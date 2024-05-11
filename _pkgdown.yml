@@ -1,4 +1,13 @@
 url: ~
 template:
   bootstrap: 5
-
+  bootswatcch: Flatly
+  components:
+    twitter:
+      icon: fa-twitter
+      href: http://twitter.com/Qiong_Chen88
+      aria-label: Twitter
+    github:
+      icon: fa-github
+      href: https://github.com/gigu003/ltRISK
+      aria-label: github
