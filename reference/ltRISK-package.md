@@ -1,0 +1,30 @@
+# ltRISK: Estimate Lifetime and Age-Conditional Risk of Developing or Dying from Cancer
+
+Estimates lifetime and age-conditional risks of developing or dying from
+cancer using population-based cancer registry data. Four established
+approaches for lifetime risk estimation are implemented: the DevCan
+method developed by the Surveillance, Epidemiology, and End Results
+(SEER) Program, the Wun method, the Adjusted for Multiple Primary
+Cancers (AMP) method, and a cumulative risk approach with a predefined
+upper age limit. The package provides a unified interface through the
+calc_ltr() function, which supports both gamma-based and delta-method
+confidence intervals, as well as the piecewise mid-age group joinpoint
+(PMAJ) model for age-specific rate modeling.
+
+## See also
+
+Useful links:
+
+- <https://github.com/gigu003/ltRISK>
+
+- Report bugs at <https://github.com/gigu003/ltRISK/issues>
+
+## Author
+
+**Maintainer**: Qiong Chen <chenq08@126.com>
+([ORCID](https://orcid.org/0000-0003-2401-0046)) \[copyright holder\]
+
+Authors:
+
+- Qiong Chen <chenq08@126.com>
+  ([ORCID](https://orcid.org/0000-0003-2401-0046)) \[copyright holder\]

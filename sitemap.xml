@@ -1,45 +1,28 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>/404.html</loc>
-  </url>
-  <url>
-    <loc>/LICENSE-text.html</loc>
-  </url>
-  <url>
-    <loc>/LICENSE.html</loc>
-  </url>
-  <url>
-    <loc>/authors.html</loc>
-  </url>
-  <url>
-    <loc>/index.html</loc>
-  </url>
-  <url>
-    <loc>/reference/cumrate.html</loc>
-  </url>
-  <url>
-    <loc>/reference/cumrisk.html</loc>
-  </url>
-  <url>
-    <loc>/reference/estimate.html</loc>
-  </url>
-  <url>
-    <loc>/reference/estimate.list.html</loc>
-  </url>
-  <url>
-    <loc>/reference/estimate.ltr.html</loc>
-  </url>
-  <url>
-    <loc>/reference/index.html</loc>
-  </url>
-  <url>
-    <loc>/reference/ltr.html</loc>
-  </url>
-  <url>
-    <loc>/reference/ztest.html</loc>
-  </url>
-  <url>
-    <loc>/reference/ztest.ltr.html</loc>
-  </url>
+<urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
+<url><loc>https://github.com/gigu003/ltRISK/404.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/LICENSE-text.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/LICENSE.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/articles/index.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/articles/use-ltRISK.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/authors.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/index.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/news/index.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/GCO_Today_2022.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/amp.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/calc_ltr.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/calc_ltr_df.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/clear_ltr_cache.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/cumulative.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/devcan.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/format_risk_ci.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/get_risk.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/index.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/ltRISK-package.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/pairwise_ztest.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/pmaj.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/seer_example_data.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/trend_test.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/wun.html</loc></url>
+<url><loc>https://github.com/gigu003/ltRISK/reference/ztest.html</loc></url>
 </urlset>
+
