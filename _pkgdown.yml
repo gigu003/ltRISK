@@ -1,4 +1,4 @@
-url: ~
+url: https://github.com/gigu003/ltRISK
 template:
   bootstrap: 5
   bootswatcch: Flatly
@@ -11,3 +11,28 @@ template:
       icon: fa-github
       href: https://github.com/gigu003/ltRISK
       aria-label: github
+reference:
+- title: Risk estimation
+  contents:
+  - calc_ltr
+  - calc_ltr_df
+  - devcan
+  - amp
+  - wun
+  - cumulative
+  - get_risk
+- title: Rate modeling and output
+  contents:
+  - pmaj
+  - format_risk_ci
+  - clear_ltr_cache
+  - ltr_cache_info
+- title: Statistical comparisons
+  contents:
+  - ztest
+  - pairwise_ztest
+  - trend_test
+- title: Data
+  contents:
+  - seer_example_data
+  - GCO_Today_2022

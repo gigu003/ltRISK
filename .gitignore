@@ -17,6 +17,7 @@
 
 # Output files from R CMD check
 /*.Rcheck/
+/check/
 
 # RStudio files
 .Rproj.user/
@@ -51,3 +52,15 @@ rsconnect/
 .DS_Store
 */.DS_Store
 docs
+inst/doc
+.positai
+/doc/
+/Meta/
+
+# Local source data and backups (not part of the package source)
+/data-raw/*.xlsx
+/data-raw/backup/
+/inst/validation/results/
+
+/.quarto/
+**/*.quarto_ipynb

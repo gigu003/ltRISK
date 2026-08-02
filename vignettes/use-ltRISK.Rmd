@@ -1,0 +1,556 @@
+---
+title: "Estimate lifetime risk of developing or dying from cancer using ltRISK"
+author: Qiong Chen
+affiliation: Affiliated Cancer Hospital of Zhengzhou University/Henan Cancer Hospital
+output: rmarkdown::html_vignette
+bibliography: references.bib
+link-citations: true
+vignette: >
+  %\VignetteIndexEntry{Estimate lifetime risk of developing or dying from cancer using ltRISK}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+<img src="figures/logo.png" align="right" height="120" style="border:none; box-shadow:none;"/>
+
+## Introduction
+
+The lifetime risk of developing cancer is a fundamental measure in cancer surveillance and public health communication. It provides an intuitive estimate of the probability that an individual will be diagnosed with cancer during a specified remaining lifetime, conditional on being alive and cancer-free at the starting age. Related age-conditional risks are also useful for communicating cancer burden over clinically meaningful age ranges, such as from age 50 to 70 years.
+
+Estimating lifetime cancer risk from population-based registry data is not always straightforward. Cancer incidence, cancer mortality, mortality from other causes, and the possibility of multiple primary cancers all affect the interpretation of the final estimate. Several methods have therefore been proposed for routine surveillance settings, including the Wun method [@wun1998], the DevCan method [@fay2003; @fay2004], the adjusted for multiple primaries (AMP) method [@sasieni2011], and the traditional cumulative risk method.
+
+The National Cancer Institute's DevCan software is widely used for estimating the lifetime probability of developing or dying from cancer. However, open-source implementations that allow users to compare DevCan, AMP, Wun, and cumulative risk approaches in a single workflow are limited. The **ltRISK** package provides a lightweight and reproducible R interface for estimating lifetime and age-conditional risks of developing or dying from cancer using aggregated registry data.
+
+## Methods
+
+### Overview of available approaches
+
+The **ltRISK** package implements four approaches for estimating cancer risk. These methods differ in their assumptions, data requirements, and treatment of competing mortality.
+
+| Feature | DevCan | Wun | AMP | Cumulative risk |
+|---|---|---|---|---|
+| Main software or implementation | DevCan; `ltRISK` | DevCan versions before 5.0; `ltRISK` | `ltRISK` | `ltRISK` |
+| Incidence input typically expected | First primary cancers | First primary cancers | All primary cancers or routinely published incidence | Incidence or cancer mortality counts |
+| Requires cancer incidence | Yes | Yes | Yes | Yes, for developing risk |
+| Requires cancer mortality | Yes | Yes | Yes | Yes, for dying risk |
+| Requires all-cause mortality | Yes | Yes | Yes | No |
+| Accounts for competing mortality | Yes | Yes | Yes | No |
+| Uses an arbitrary upper age limit | No | No | No | Often yes, for example age 74 |
+
+: Comparison of four methods for estimating lifetime cancer risk.
+
+### Which method should I use?
+
+- Use `risk_func = "devcan"` when incidence counts represent **first primary cancers** and you want estimates aligned with the DevCan current probability framework.
+- Use `risk_func = "wun"` for historical comparisons with earlier DevCan approaches or when explicitly applying the Wun et al. method.
+- Use `risk_func = "amp"` when incidence data may include **multiple primary cancers** and only aggregated registry data are available.
+- Use `risk_func = "cumulative"` in `calc_ltr()`, or use `cumulative()` with `get_risk()`, when you need the traditional cumulative risk over a fixed age range and do not want to account for competing mortality.
+
+The package also supports two approaches for confidence intervals in `calc_ltr()`: a gamma-based method and a delta-method approximation.
+
+For routine analyses, start with `calc_ltr()` when the age-specific vectors are
+already available and `calc_ltr_df()` when the inputs are columns in a data
+frame or must be analyzed by population, sex, site, period, or another grouping
+variable. The lower-level `devcan()`, `amp()`, `wun()`, and `cumulative()`
+functions expose each point-estimation model directly, while `get_risk()`
+extracts specified age ranges from those fitted model objects. This separation
+keeps the unified confidence-interval workflow in `calc_ltr()` without hiding
+the underlying model calculations.
+
+### Literature and implementation status
+
+Several related approaches have been proposed for estimating lifetime or
+age-conditional cancer risk from registry data. The methods differ in their
+target estimand, treatment of competing mortality, and handling of multiple
+primary cancers. The table below summarizes how the main methodological papers
+map to the current **ltRISK** implementation.
+
+| Literature | Main idea | Status in `ltRISK` | Main function(s) | Notes |
+|---|---|---|---|---|
+| Bender et al. [-@bender1992] | Standard person-years approach; interprets lifetime risk as a population cancer risk or expected number of cancers | Not implemented as a separate estimator | -- | Related to cumulative/person-year summaries, but the estimand differs from individual lifetime probability |
+| Feuer et al. [-@feuer1993] | Multiple-decrement life-table application to breast cancer lifetime risk | Covered indirectly | `wun()`, `devcan()` | Historical application and interpretation of current lifetime risk |
+| Wun et al. [-@wun1998] | Early DevCan-style age-conditional probabilities with cancer prevalence adjustment and optional surgery correction | Implemented | `wun()` | Includes optional surgery correction through `correct_for_surgery`, `H`, and `Ch` |
+| Fay et al. [-@fay2003] | Current-probability estimator under a unified competing-risks framework, with gamma confidence intervals | Implemented | `devcan()`, `calc_ltr()` | Core DevCan-style estimator for developing or dying from cancer |
+| Fay [-@fay2004] | Mid-age group joinpoint and piecewise approximation for age-specific rates | Implemented as PMAJ approximation | `pmaj()` | Exact continuous MAJ is approximated by sub-intervals controlled by `pmaj_sub_interval` |
+| Sasieni et al. [-@sasieni2011] | Adjusted for multiple primaries (AMP) method for routinely published incidence | Implemented | `amp()` | Suitable when incidence may include multiple primary cancers |
+| Inoue et al. [-@inoue2000] | Traditional cumulative risk over the whole life span or fixed upper ages | Implemented | `cumulative()` | Does not account for competing mortality |
+| Zheng et al. [-@zheng2023] | Large-scale GLOBOCAN application using AMP for global, regional, and national lifetime probabilities | Method covered | `amp()`, `calc_ltr_df()` | The included `GCO_Today_2022` data support similar grouped workflows |
+| Liu et al. [-@liu2023] | DevCan-based lifetime probabilities of developing and dying from cancer over time | Probability component covered | `devcan()`, `calc_ltr_df()` | Trend modeling such as Joinpoint is outside the current package scope |
+
+: Literature and implementation status of lifetime cancer risk methods.
+
+Overall, **ltRISK** currently implements the main probability estimators needed
+for routine registry-based lifetime risk analyses: Wun, DevCan/Fay, AMP, and
+traditional cumulative risk. Methods focused on trend modeling or alternative
+population-risk estimands can be combined with **ltRISK** outputs but are not
+implemented as separate core estimators.
+
+### Confidence intervals
+
+The `calc_ltr()` function reports point estimates together with confidence intervals for lifetime and age-conditional risks. The inference framework follows the approach described by Fay et al. [-@fay2003] for age-conditional probabilities of developing cancer. In that work, the risk estimator is treated as a smooth function of the observed age-specific counts, including incident cancer cases, cancer deaths, and deaths from other causes.
+
+Let $\hat{A}$ denote the estimated risk for a specified age range, and let $\widehat{V}(\hat{A})$ denote its estimated variance. **ltRISK** propagates count variability with the delta method. By default, `variance_method = "auto"` uses analytic gradients for DevCan, AMP, Wun without surgery correction, and cumulative risk. These gradients avoid repeatedly refitting the risk model and are much faster for confidence-interval calculations. `variance_method = "finite_difference"` remains available as an independent implementation check. Wun calculations with surgery correction currently use finite differences because the API does not specify sampling variances or covariances for the surgery counts `H` and `Ch`.
+
+#### Sampling assumptions and interpretation
+
+The variance calculation represents the observed vectors as the count components
+$c_i$, $d_i$, and $o_i$, where $c_i$ is cancer incidence, $d_i$ is cancer
+mortality, and $o_i = death_i - d_i$ is other-cause mortality in age group $i$.
+The default calculation assumes that these components are independent Poisson
+counts across components and age groups, with variances estimated by their
+observed counts. Person-years are treated as fixed denominators. Following the
+small-count convention used by Fay et al. [-@fay2003], zero count variances are
+replaced by 0.5 for the normal delta interval but not for the gamma interval.
+
+These assumptions are most natural for non-overlapping registry strata and
+calendar periods. Results from overlapping populations, nested cancer sites,
+or repeated periods are generally correlated. `ztest()`, `pairwise_ztest()`, and
+`trend_test()` do not estimate that covariance and should not be interpreted as
+valid independent-group tests when such overlap is present. The estimators also
+describe a hypothetical cohort exposed throughout life to the supplied
+cross-sectional rates; they are not predictions for an observed birth cohort.
+
+For DevCan developing risk, a central identifying assumption is that the
+other-cause mortality rate is the same among people who are cancer-free and in
+the population represented by the supplied rates [@fay2003]. AMP additionally
+assumes that routinely published incidence can be adjusted through the
+specified competing-risk construction, whereas traditional cumulative risk
+does not account for competing mortality.
+
+#### Gamma confidence intervals
+
+The default option, `ci_method = "gamma"`, uses a gamma-based confidence interval. Following Fay et al. [-@fay2003], the estimated risk is approximated by a gamma distribution whose mean is $\hat{A}$ and whose variance is $\widehat{V}(\hat{A})$. The shape and scale parameters are therefore
+
+\[
+  \alpha_A = \frac{\hat{A}^2}{\widehat{V}(\hat{A})},
+  \qquad
+  \theta_A = \frac{\widehat{V}(\hat{A})}{\hat{A}}.
+\]
+
+The lower confidence limit is calculated from the lower tail of this gamma distribution. For the upper confidence limit, **ltRISK** follows the conservative strategy used in the Fay et al. framework by first identifying a locally maximal perturbed risk and then evaluating the corresponding gamma quantile. This helps maintain a non-negative confidence interval and is especially useful when the estimated risk is small or when a normal approximation may perform poorly.
+
+For a two-sided $100(1 - \alpha)\%$ confidence interval, the gamma method can be summarized as
+
+\[
+  L = G^{-1}\left(\frac{\alpha}{2};\, \alpha_A, \theta_A\right),
+  \qquad
+  U = G^{-1}\left(1 - \frac{\alpha}{2};\, \alpha_M, \theta_M\right),
+\]
+
+where $G^{-1}(p; \alpha, \theta)$ is the $p$-th quantile of a gamma distribution with shape $\alpha$ and scale $\theta$. The parameters $\alpha_M$ and $\theta_M$ are computed from the locally maximal perturbed risk and its variance.
+
+#### Delta-method confidence intervals
+
+The alternative option, `ci_method = "delta"`, uses a normal approximation based on the delta method. With estimated variance $\widehat{V}(\hat{A})$, the confidence interval is
+
+\[
+  \hat{A} \pm z_{1 - \alpha/2}\sqrt{\widehat{V}(\hat{A})},
+\]
+
+where $z_{1 - \alpha/2}$ is the corresponding standard normal quantile. This interval is simple and useful for comparison, but because it is based on a symmetric normal approximation, it may produce a lower limit below zero when the estimated risk is small or the variance is large. For this reason, the gamma method is used as the default in `calc_ltr()`.
+
+Both methods are available for the risk estimators implemented in `calc_ltr()`. Users can select the confidence interval method with the `ci_method` argument:
+
+```{r, eval = FALSE}
+calc_ltr(..., risk_func = "devcan", ci_method = "gamma")
+calc_ltr(..., risk_func = "devcan", ci_method = "delta")
+calc_ltr(..., risk_func = "amp", ci_method = "gamma")
+calc_ltr(..., risk_func = "wun", ci_method = "gamma")
+calc_ltr(..., risk_func = "cumulative", ci_method = "delta")
+```
+
+The gamma construction is non-negative, but it is still an approximation. Very
+sparse data, unidentified open-ended terminal intervals, or rate structures
+near parameter boundaries require particular care. Invalid non-finite local
+perturbations are excluded from the upper-limit maximization. For sensitivity
+analysis, compare gamma and delta intervals and, when practical, inspect a
+problem-specific parametric simulation.
+
+## Using ltRISK
+
+### Load the package
+
+```{r}
+library(ltRISK)
+```
+
+### Data preparation
+
+The main functions in **ltRISK** use age-specific aggregated data. The required variables are:
+
+- `ages`: lower bounds of the age intervals, such as `0, 1, 5, 10, ..., 85`.
+- `cancer`: number of incident cancer cases in each age interval. For DevCan and Wun, this usually represents first primary cancers. For AMP, routinely published incidence including multiple primary cancers may be used.
+- `cancer_death`: number of deaths from the cancer or cancer group under study.
+- `death`: number of deaths from all causes in each age interval.
+- `pys`: person-years at risk or the corresponding population denominator for each age interval.
+
+All vectors should have the same length and should refer to the same population, calendar period, sex, cancer site, and age grouping. The `ages` vector should be sorted in ascending order.
+
+### Example datasets
+
+The package includes two example datasets.
+
+- `seer_example_data`: data used to reproduce examples from DevCan-related publications, including breast cancer data from Fay et al. and all-sites SEER data embedded in DevCan.
+- `GCO_Today_2022`: data assembled from Global Cancer Observatory 2022 estimates and World Population Prospects 2022 population and all-cause mortality data. It covers 20 world regions and includes age- and sex-specific estimates.
+
+```{r}
+data("seer_example_data")
+breast <- seer_example_data[seer_example_data$site == "Breast", ]
+head(seer_example_data)
+```
+
+```{r}
+data("GCO_Today_2022")
+head(GCO_Today_2022)
+```
+
+The example datasets included in this package contain first primary cancer counts.
+
+### Data-frame and tidyverse-style interface
+
+The core function `calc_ltr()` takes five age-specific vectors: `ages`,
+`cancer`, `cancer_death`, `death`, and `pys`. This interface is useful when
+the vectors have already been extracted from a registry table. In many applied
+workflows, however, cancer registry data are stored as a data frame with one row
+per age group. For this situation, **ltRISK** provides `calc_ltr_df()`, a
+data-frame interface to the same calculations.
+
+The following call gives the same type of result as `calc_ltr()`, but the input
+columns are selected directly from the data frame. Columns can be supplied as
+bare names, character strings, or character variables.
+
+```{r data-frame-interface}
+calc_ltr_df(
+  breast,
+  ages = ages,
+  cancer = cancer,
+  cancer_death = cancer_death,
+  death = death,
+  pys = pys,
+  risk_func = "devcan",
+  maj_method = "constant",
+  ci_method = "gamma",
+  age_start = c(0, 30, 50, 70),
+  age_end = c(30, 50, 70, Inf),
+  digits = 4
+)
+```
+
+This data-frame interface also works naturally with the base R pipe. For
+example, the breast cancer data can be filtered and passed directly to
+`calc_ltr_df()`:
+
+```{r data-frame-pipe}
+seer_example_data |>
+  subset(site == "Breast") |>
+  calc_ltr_df(
+    ages = ages,
+    cancer = cancer,
+    cancer_death = cancer_death,
+    death = death,
+    pys = pys,
+    risk_func = "devcan",
+    maj_method = "constant",
+    ci_method = "delta",
+    age_start = c(0, 50, 70),
+    age_end = Inf,
+    digits = 4
+  )
+```
+
+For registry tables containing multiple populations, cancer sites, sexes, or
+regions, `calc_ltr_df()` can calculate risks separately within groups. The
+grouping variables are returned together with the risk estimates, producing a
+tidy result that can be used in downstream summaries, joins, or plots.
+
+```{r data-frame-by}
+calc_ltr_df(
+  seer_example_data,
+  by = c("site", "sex"),
+  ages = ages,
+  cancer = cancer,
+  cancer_death = cancer_death,
+  death = death,
+  pys = pys,
+  risk_func = "devcan",
+  maj_method = "constant",
+  ci_method = "delta",
+  age_start = 0,
+  age_end = Inf,
+  digits = 4
+)
+```
+
+If **dplyr** is installed, grouped data frames are also supported. The grouping
+variables from `dplyr::group_by()` are detected automatically.
+
+```{r data-frame-dplyr, eval = requireNamespace("dplyr", quietly = TRUE)}
+seer_example_data |>
+  dplyr::group_by(site, sex) |>
+  calc_ltr_df(
+    ages = ages,
+    cancer = cancer,
+    cancer_death = cancer_death,
+    death = death,
+    pys = pys,
+    risk_func = "devcan",
+    maj_method = "constant",
+    ci_method = "delta",
+    age_start = 0,
+    age_end = Inf,
+    digits = 4
+  )
+```
+
+## Method 1: DevCan method
+
+The DevCan method estimates the probability of developing or dying from cancer while accounting for competing mortality. In **ltRISK**, this method is selected with `risk_func = "devcan"`.
+
+The following example estimates the lifetime and age-conditional risks of developing breast cancer using the piecewise constant rate model and gamma confidence intervals.
+
+```{r}
+# Extract breast cancer data from the example dataset
+# The breast object was created above in the example data section.
+
+# Estimate the risk of developing breast cancer
+calc_ltr(
+  ages = breast$ages,
+  cancer = breast$cancer,
+  cancer_death = breast$cancer_death,
+  death = breast$death,
+  pys = breast$pys,
+  risk_func = "devcan",
+  maj_method = "constant",
+  ci_method = "gamma",
+  age_start = c(0, 30, 50, 70),
+  age_end = c(30, 50, 70, Inf),
+  digits = 4
+)
+```
+
+The same estimates can be obtained with delta-method confidence intervals by setting `ci_method = "delta"`.
+
+```{r}
+calc_ltr(
+  ages = breast$ages,
+  cancer = breast$cancer,
+  cancer_death = breast$cancer_death,
+  death = breast$death,
+  pys = breast$pys,
+  risk_func = "devcan",
+  maj_method = "constant",
+  ci_method = "delta",
+  age_start = c(0, 30, 50, 70),
+  age_end = c(30, 50, 70, Inf),
+  digits = 4
+)
+```
+
+For these data, the estimated lifetime risk of developing breast cancer from birth is **13.3198%**, with a gamma 95% confidence interval of **13.2170% to 13.4235%**. These values, together with the age ranges 30--50, 30--infinity, and 50--70, reproduce Fay et al. [-@fay2003] Table II at its published four-decimal precision. The package test suite stores the published values separately from package-generated output so this remains an external regression check.
+
+To estimate the probability of dying from breast cancer rather than developing breast cancer, set `type = "dying"`.
+
+```{r}
+calc_ltr(
+  ages = breast$ages,
+  cancer = breast$cancer,
+  cancer_death = breast$cancer_death,
+  death = breast$death,
+  pys = breast$pys,
+  risk_func = "devcan",
+  maj_method = "constant",
+  ci_method = "gamma",
+  type = "dying",
+  age_start = c(0, 30, 50, 70),
+  age_end = c(30, 50, 70, Inf),
+  digits = 4
+)
+```
+
+### PMAJ model
+
+DevCan version 6.0 and later uses a piecewise mid-age group joinpoint (PMAJ) model [@fay2004]. In **ltRISK**, users can request this approach with `risk_func = "devcan"` and `maj_method = "pmaj"`.
+
+```{r}
+# Extract all-sites cancer data for both sexes combined
+all_sites <- seer_example_data[
+  seer_example_data$site == "All" & seer_example_data$sex == 0,
+]
+
+# Estimate age-conditional and lifetime risks of developing cancer
+calc_ltr(
+  ages = all_sites$ages,
+  cancer = all_sites$cancer,
+  cancer_death = all_sites$cancer_death,
+  death = all_sites$death,
+  pys = all_sites$pys,
+  risk_func = "devcan",
+  maj_method = "pmaj",
+  age_start = c(0, seq(40, 90, 10)),
+  age_end = Inf,
+  digits = 4
+)
+
+# Estimate age-conditional and lifetime risks of dying from cancer
+calc_ltr(
+  ages = all_sites$ages,
+  cancer = all_sites$cancer,
+  cancer_death = all_sites$cancer_death,
+  death = all_sites$death,
+  pys = all_sites$pys,
+  risk_func = "devcan",
+  maj_method = "pmaj",
+  type = "dying",
+  age_start = c(0, seq(40, 90, 10)),
+  age_end = Inf,
+  digits = 4
+)
+```
+
+Using these example data, the estimated lifetime risk of developing cancer is approximately **38.9045%**, and the estimated lifetime risk of dying from cancer is approximately **17.2576%**.
+
+Because the PMAJ model evaluates age-specific rates on a finer age grid, it can
+also be used to estimate risks over age ranges whose endpoints are not original
+age-group boundaries. For example, if the input data are grouped in 5-year age
+bands, a piecewise-constant calculation is naturally tied to those 5-year
+boundaries. By contrast, `maj_method = "pmaj"` with
+`pmaj_sub_interval = 1` creates an approximately 1-year grid, allowing endpoints
+such as age 78 or age 66. Smaller values of `pmaj_sub_interval` provide finer
+age resolution and more closely approximate the continuous mid-age group
+joinpoint calculation.
+
+```{r}
+# Estimate risks for age ranges such as 0--78 and 40--66 years.
+# age_start and age_end are crossed by calc_ltr(), so the rows below include
+# all combinations of the supplied starts and ends.
+calc_ltr(
+  ages = all_sites$ages,
+  cancer = all_sites$cancer,
+  cancer_death = all_sites$cancer_death,
+  death = all_sites$death,
+  pys = all_sites$pys,
+  risk_func = "devcan",
+  maj_method = "pmaj",
+  pmaj_sub_interval = 1,
+  ci_method = "delta",
+  age_start = c(0, 40),
+  age_end = c(78, 66),
+  digits = 4
+)
+```
+
+The same idea applies to other estimators that support PMAJ smoothing in
+**ltRISK**, including `risk_func = "amp"` and
+`risk_func = "cumulative"`. With `maj_method = "constant"`, finite endpoints
+generally need to coincide with the original age-group boundaries.
+
+## Method 2: Wun method
+
+Before DevCan version 5.0, the Wun method [@wun1998] was commonly used for lifetime and age-conditional cancer risk estimation. It remains useful for reproducing historical estimates and for methodological comparisons.
+
+In **ltRISK**, use `risk_func = "wun"` to apply this method. Additional Wun-specific arguments are documented in `?wun`.
+
+```{r}
+calc_ltr(
+  ages = all_sites$ages,
+  cancer = all_sites$cancer,
+  cancer_death = all_sites$cancer_death,
+  death = all_sites$death,
+  pys = all_sites$pys,
+  risk_func = "wun",
+  age_start = c(0, seq(40, 90, 10)),
+  age_end = Inf,
+  digits = 4
+)
+```
+
+## Method 3: AMP method
+
+The adjusted for multiple primaries (AMP) method [@sasieni2011] is designed for settings where incidence data include multiple primary cancers. This situation commonly occurs when users work with aggregated data routinely published by cancer registries.
+
+In **ltRISK**, use `risk_func = "amp"` to apply the AMP method. Additional AMP-specific arguments are documented in `?amp`.
+
+```{r}
+calc_ltr(
+  ages = all_sites$ages,
+  cancer = all_sites$cancer,
+  cancer_death = all_sites$cancer_death,
+  death = all_sites$death,
+  pys = all_sites$pys,
+  risk_func = "amp",
+  age_start = c(0, seq(40, 90, 10)),
+  age_end = Inf,
+  digits = 4
+)
+```
+
+## Method 4: Traditional cumulative risk
+
+Traditional cumulative risk is often reported over a fixed age range, such as from birth to age 74 years. Unlike DevCan, Wun, and AMP, this approach does not account for competing mortality. It therefore tends to overestimate risk at older ages, especially when mortality from other causes is substantial.
+
+In **ltRISK**, cumulative risk can be calculated directly through `calc_ltr()` by setting `risk_func = "cumulative"`. This provides the same point estimate as `cumulative()` followed by `get_risk()`, while also returning confidence intervals from the common delta-method variance framework used by `calc_ltr()`.
+
+```{r}
+calc_ltr(
+  ages = all_sites$ages,
+  cancer = all_sites$cancer,
+  cancer_death = all_sites$cancer_death,
+  death = all_sites$death,
+  pys = all_sites$pys,
+  risk_func = "cumulative",
+  type = "developing",
+  maj_method = "constant",
+  ci_method = "delta",
+  age_start = 0,
+  age_end = c(75, 85),
+  digits = 4
+)
+```
+
+The lower-level workflow is also available through `cumulative()` and
+`get_risk()` when confidence intervals are not needed.
+
+```{r}
+# Cumulative risk of developing cancer
+cumu_developing <- cumulative(
+  ages = all_sites$ages,
+  cancer = all_sites$cancer,
+  cancer_death = all_sites$cancer_death,
+  death = all_sites$death,
+  pys = all_sites$pys,
+  type = "developing",
+  maj_method = "constant"
+)
+
+# Retrieve cumulative risk from birth to ages 75 and 85
+get_risk(cumu_developing, age_start = 0, age_end = c(75, 85))
+
+# Cumulative risk of dying from cancer
+cumu_dying <- cumulative(
+  ages = all_sites$ages,
+  cancer = all_sites$cancer,
+  cancer_death = all_sites$cancer_death,
+  death = all_sites$death,
+  pys = all_sites$pys,
+  type = "dying",
+  maj_method = "constant"
+)
+
+# Retrieve cumulative mortality risk from birth to ages 75 and 85
+get_risk(cumu_dying, age_start = 0, age_end = c(75, 85))
+```
+
+## Conclusion
+
+The **ltRISK** package provides an open-source and reproducible framework for estimating lifetime and age-conditional risks of developing or dying from cancer. By implementing DevCan, Wun, AMP, and cumulative risk methods in a single R package, **ltRISK** allows researchers and cancer registries to select an estimator that matches their data structure and surveillance question. For data-frame and grouped workflows, `calc_ltr_df()` provides a convenient interface that integrates with base pipes and, optionally, with **dplyr** grouped data frames.
+
+For data restricted to first primary cancers, the DevCan method is often appropriate. For aggregated incidence data that may include multiple primary cancers, the AMP method provides a practical alternative. The cumulative risk method remains useful for simple descriptive summaries over fixed age intervals, but its assumptions should be clearly communicated.
+
+## References

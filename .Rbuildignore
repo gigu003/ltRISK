@@ -7,3 +7,13 @@
 ^docs$
 ^pkgdown$
 ^README\.Rmd$
+^\.positai$
+^\.claude$
+^doc$
+^Meta$
+^check$
+^.*\.Rcheck$
+^.*\.tar\.gz$
+^cran-comments\.md$
+^inst/benchmarks$
+^inst/validation$

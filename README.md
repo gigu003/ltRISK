@@ -6,85 +6,403 @@
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/gigu003/ltRISK/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/gigu003/ltRISK/actions/workflows/R-CMD-check.yaml)
+[![test-coverage](https://github.com/gigu003/ltRISK/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/gigu003/ltRISK/actions/workflows/test-coverage.yaml)
+[![Codecov test
+coverage](https://codecov.io/gh/gigu003/ltRISK/branch/main/graph/badge.svg)](https://app.codecov.io/gh/gigu003/ltRISK)
 <!-- badges: end -->
 
-This is an R package used to estimate lifetime risk of developing or
-dying from cancer using Population-Based Cancer Registry data.
+## Overview
+
+**ltRISK** estimates lifetime and age-conditional risks of developing or
+dying from cancer using population-based cancer registry data. It
+provides a reproducible R interface for comparing several established
+approaches used in cancer surveillance:
+
+- **DevCan method** for current-probability estimates based on first
+  primary cancers.
+- **Wun method** for historical comparisons with earlier DevCan-style
+  estimates.
+- **Adjusted for Multiple Primaries (AMP) method** for aggregated
+  incidence data that may include multiple primary cancers.
+- **Traditional cumulative risk** over a fixed age range.
+
+The main wrapper, `calc_ltr()`, returns risk estimates and confidence
+intervals. Both gamma-based and delta-method confidence intervals are
+supported through the `ci_method` argument. The package also supports
+the piecewise mid-age group joinpoint (PMAJ) model used in recent DevCan
+implementations.
 
 ## Installation
 
-You can install the development version of ltRISK from
-[GitHub](https://github.com/) with:
+You can install the development version of **ltRISK** from GitHub with:
 
 ``` r
 # install.packages("devtools")
 devtools::install_github("gigu003/ltRISK")
 ```
 
-## Example
+## Quick example: DevCan method
 
-This is a basic example which shows you how to solve a common problem:
+The package includes example data from DevCan-related publications and
+SEER data. The following example estimates the lifetime and
+age-conditional risks of developing breast cancer using the DevCan
+method.
 
 ``` r
 library(ltRISK)
-ni <- c(
-  73872987, 82029530, 72267070, 78303514, 99425613, 119915673, 98068725,
-  96644427, 121225951, 121250720, 96012917, 79863455, 75972753, 52929797,
-  37551107, 29047207, 19584254, 13854299
-)
-mi <- c(
-  60594, 17718, 18883, 28127, 37493, 75223, 83574, 100655, 211467, 278913,
-  419663, 445223, 770865, 929008, 1058922, 1346942, 1576852, 2305312
-)
-di <- c(
-  3511, 2801, 2553, 3183, 4960, 9456, 13509, 23935, 62386, 111640, 147866,
-  203955, 301892, 304985, 302785, 323804, 275557, 197614
-)
-ri <- c(
-  9303, 6887, 6248, 8509, 16961, 39439, 56670, 86535, 189251, 289320, 344395,
-  411232, 552071, 491213, 433786, 395544, 292672, 173503
-)
-# Estimate the life time risk of developing cancer
-ll <- ltr(mi, di, ri, ni, type = "developing")
-estimate(ll)
-#> $risk
-#> [1] 26.85
-#> 
-#> $lower
-#> [1] 26.7
-#> 
-#> $upper
-#> [1] 27
 
-# Estimate the life time risk of dying from cancer
-dd <- ltr(mi, di, ri, ni, type = "dying")
-estimate(dd)
-#> $risk
-#> [1] 19.8
-#> 
-#> $lower
-#> [1] 19.73
-#> 
-#> $upper
-#> [1] 19.87
+data("seer_example_data")
+
+breast <- seer_example_data[seer_example_data$site == "Breast", ]
+all_sites <- seer_example_data[
+  seer_example_data$site == "All" & seer_example_data$sex == 0,
+]
+
+calc_ltr(
+  ages = breast$ages,
+  cancer = breast$cancer,
+  cancer_death = breast$cancer_death,
+  death = breast$death,
+  pys = breast$pys,
+  risk_func = "devcan",
+  maj_method = "constant",
+  ci_method = "gamma",
+  age_start = c(0, 30, 50, 70),
+  age_end = c(30, 50, 70, Inf),
+  digits = 4
+)
+#>    start end    risk   lower   upper
+#> 1      0  30  0.0470  0.0424  0.0519
+#> 2      0  50  1.8995  1.8708  1.9286
+#> 3      0  70  7.7861  7.7130  7.8598
+#> 4      0 Inf 13.3198 13.2170 13.4235
+#> 5     30  50  1.8817  1.8529  1.9108
+#> 6     30  70  7.8609  7.7868  7.9355
+#> 7     30 Inf 13.4816 13.3773 13.5868
+#> 8     50  70  6.2505  6.1793  6.3224
+#> 9     50 Inf 12.1264 12.0217 12.2320
+#> 10    70 Inf  7.3149  7.2202  7.4109
 ```
 
-Calculate the cumulative mortality risk with the predefined upper limit
-age of 74 years.
+The same calculation can be written with the data-frame interface
+`calc_ltr_df()`, which is convenient for pipe-based workflows:
 
 ``` r
-cum <- cumrate(di, ni, eage = 70)
-cumrisk(cum)
-#> Cumulative Risk (1/100) 
-#>                    16.1
+calc_ltr_df(
+  breast,
+  ages = ages,
+  cancer = cancer,
+  cancer_death = cancer_death,
+  death = death,
+  pys = pys,
+  risk_func = "devcan",
+  maj_method = "constant",
+  ci_method = "gamma",
+  age_start = c(0, 30, 50, 70),
+  age_end = c(30, 50, 70, Inf),
+  digits = 4
+)
+#>    start end    risk   lower   upper
+#> 1      0  30  0.0470  0.0424  0.0519
+#> 2      0  50  1.8995  1.8708  1.9286
+#> 3      0  70  7.7861  7.7130  7.8598
+#> 4      0 Inf 13.3198 13.2170 13.4235
+#> 5     30  50  1.8817  1.8529  1.9108
+#> 6     30  70  7.8609  7.7868  7.9355
+#> 7     30 Inf 13.4816 13.3773 13.5868
+#> 8     50  70  6.2505  6.1793  6.3224
+#> 9     50 Inf 12.1264 12.0217 12.2320
+#> 10    70 Inf  7.3149  7.2202  7.4109
 ```
 
-You can also calculate the cumulative incidence risk with the predefined
-upper limit age of 74 years.
+For multiple registry strata, `calc_ltr_df()` can calculate risks by
+group:
 
 ``` r
-cum <- cumrate(ri, ni, eage = 70)
-cumrisk(cum)
-#> Cumulative Risk (1/100) 
-#>                   24.67
+calc_ltr_df(
+  seer_example_data,
+  by = c("site", "sex"),
+  ages = ages,
+  cancer = cancer,
+  cancer_death = cancer_death,
+  death = death,
+  pys = pys,
+  risk_func = "devcan",
+  maj_method = "constant",
+  ci_method = "delta",
+  age_start = 0,
+  age_end = Inf,
+  digits = 4
+)
+#>     site sex start end    risk   lower   upper
+#> 1    All   0     0 Inf 39.1670 39.1072 39.2268
+#> 2    All   1     0 Inf 39.4881 39.4018 39.5744
+#> 3    All   2     0 Inf 38.9734 38.8899 39.0569
+#> 4 Breast   2     0 Inf 13.3198 13.2168 13.4228
+```
+
+## Age-range behavior
+
+By default, `calc_ltr()` returns every valid combination of `age_start`
+and `age_end`. Use `age_combine = "pairwise"` for positional, mutually
+exclusive ranges such as 0–40, 40–50, and 50 years to the end of life.
+
+``` r
+calc_ltr(
+  ages = all_sites$ages,
+  cancer = all_sites$cancer,
+  cancer_death = all_sites$cancer_death,
+  death = all_sites$death,
+  pys = all_sites$pys,
+  age_start = c(0, 40, 50),
+  age_end = c(40, 50, Inf),
+  age_combine = "pairwise",
+  ci_method = "delta",
+  digits = 4
+)
+#>   start end    risk   lower   upper
+#> 1     0  40  2.0321  2.0212  2.0431
+#> 2    40  50  2.8292  2.8155  2.8429
+#> 3    50 Inf 38.3877 38.3238 38.4515
+```
+
+## Faster large analyses
+
+For point estimates only, use `ci_method = "none"`. DevCan, AMP, Wun,
+and cumulative-risk models use analytic variances by default where
+available; `variance_method = "finite_difference"` remains available for
+verification. For many independent registry strata, `calc_ltr_df()`
+supports cross-platform parallel processing.
+
+``` r
+risks <- calc_ltr_df(
+  seer_example_data,
+  by = c("site", "sex"),
+  ci_method = "delta",
+  variance_method = "analytic",
+  parallel = TRUE,
+  workers = 2,
+  return_variance = TRUE
+)
+```
+
+Repeated calculations use internal memoisation. Long-running pipelines
+can inspect or clear these caches explicitly:
+
+``` r
+ltr_cache_info()
+clear_ltr_cache()
+```
+
+For a large grouped job whose inputs are unlikely to repeat, use
+`cache = "none"` in `calc_ltr_df()`. This discards memoised entries
+after each group, including on reused PSOCK workers, and reduces peak
+cache growth.
+
+Package developers can reproduce the confidence-interval timing
+comparison from the source tree with:
+
+``` sh
+Rscript inst/benchmarks/benchmark-ci.R
+```
+
+The DevCan implementation is externally regression-tested against the
+female breast cancer estimates and confidence intervals in Fay et
+al. (2003), Table II. A seeded parametric coverage diagnostic can be run
+from the source tree:
+
+``` sh
+Rscript inst/validation/simulate-ci-coverage.R 1000
+```
+
+The variance model treats incidence, cancer-death, and other-death
+counts as independent Poisson components and treats person-years as
+fixed. Comparisons of overlapping populations or periods require
+covariance information that the package does not estimate automatically.
+
+## Formatting and comparisons
+
+`format_risk_ci()` combines estimates and confidence limits for tables
+while retaining the precision selected in `calc_ltr()`. With
+`return_variance = TRUE`, grouped results can also be passed to
+`ztest()`, `pairwise_ztest()`, or `trend_test()`.
+
+``` r
+sex_risks <- calc_ltr_df(
+  seer_example_data[
+    seer_example_data$site == "All" &
+      seer_example_data$sex %in% c(1, 2),
+  ],
+  by = "sex",
+  ci_method = "delta",
+  return_variance = TRUE,
+  digits = 4
+)
+
+format_risk_ci(sex_risks)
+#>   sex start end    risk   lower   upper    variance         se
+#> 1   1     0 Inf 39.2052 39.1189 39.2915 0.001938403 0.04402730
+#> 2   2     0 Inf 38.7289 38.6453 38.8124 0.001816086 0.04261556
+#>                    risk_95ci
+#> 1 39.2052 (39.1189, 39.2915)
+#> 2 38.7289 (38.6453, 38.8124)
+ztest(sex_risks, group = "sex", ref = 2, compare = 1)
+#>   group_compare group_ref start end risk_compare risk_ref difference       se
+#> 1             1         2     0 Inf      39.2052  38.7289     0.4763 0.061274
+#>          z            p    lower    upper
+#> 1 7.773295 7.647009e-15 0.356205 0.596395
+```
+
+The same estimates can be calculated with delta-method confidence
+intervals:
+
+``` r
+calc_ltr(
+  ages = breast$ages,
+  cancer = breast$cancer,
+  cancer_death = breast$cancer_death,
+  death = breast$death,
+  pys = breast$pys,
+  risk_func = "devcan",
+  maj_method = "constant",
+  ci_method = "delta",
+  age_start = c(0, 30, 50, 70),
+  age_end = c(30, 50, 70, Inf),
+  digits = 4
+)
+#>    start end    risk   lower   upper
+#> 1      0  30  0.0470  0.0423  0.0517
+#> 2      0  50  1.8995  1.8707  1.9284
+#> 3      0  70  7.7861  7.7128  7.8594
+#> 4      0 Inf 13.3198 13.2168 13.4228
+#> 5     30  50  1.8817  1.8527  1.9106
+#> 6     30  70  7.8609  7.7866  7.9351
+#> 7     30 Inf 13.4816 13.3771 13.5861
+#> 8     50  70  6.2505  6.1791  6.3220
+#> 9     50 Inf 12.1264 12.0214 12.2313
+#> 10    70 Inf  7.3149  7.2199  7.4100
+```
+
+To estimate the risk of dying from cancer instead of developing cancer,
+set `type = "dying"`.
+
+``` r
+calc_ltr(
+  ages = breast$ages,
+  cancer = breast$cancer,
+  cancer_death = breast$cancer_death,
+  death = breast$death,
+  pys = breast$pys,
+  risk_func = "devcan",
+  maj_method = "constant",
+  ci_method = "gamma",
+  type = "dying",
+  age_start = c(0, 30, 50, 70),
+  age_end = c(30, 50, 70, Inf),
+  digits = 4
+)
+#>    start end   risk  lower  upper
+#> 1      0  30 0.0051 0.0037 0.0069
+#> 2      0  50 0.2901 0.2789 0.3016
+#> 3      0  70 1.4657 1.4339 1.4981
+#> 4      0 Inf 3.2027 3.1514 3.2548
+#> 5     30  50 0.2893 0.2781 0.3009
+#> 6     30  70 1.4830 1.4507 1.5158
+#> 7     30 Inf 3.2465 3.1944 3.2994
+#> 8     50  70 1.2276 1.1965 1.2593
+#> 9     50 Inf 3.0413 2.9890 3.0945
+#> 10    70 Inf 2.1361 2.0862 2.1870
+```
+
+## Other supported methods
+
+The same `calc_ltr()` interface can be used with the Wun and AMP methods
+by changing `risk_func`.
+
+``` r
+# Wun method
+calc_ltr(
+  ages = all_sites$ages,
+  cancer = all_sites$cancer,
+  cancer_death = all_sites$cancer_death,
+  death = all_sites$death,
+  pys = all_sites$pys,
+  risk_func = "wun",
+  ci_method = "gamma",
+  age_start = c(0, 50, 70),
+  age_end = Inf,
+  digits = 4
+)
+#>   start end    risk   lower   upper
+#> 1     0 Inf 38.6175 38.5601 38.6750
+#> 2    50 Inf 37.9643 37.9032 38.0255
+#> 3    70 Inf 29.9816 29.9097 30.0535
+
+# AMP method
+calc_ltr(
+  ages = all_sites$ages,
+  cancer = all_sites$cancer,
+  cancer_death = all_sites$cancer_death,
+  death = all_sites$death,
+  pys = all_sites$pys,
+  risk_func = "amp",
+  ci_method = "gamma",
+  age_start = c(0, 50, 70),
+  age_end = Inf,
+  digits = 4
+)
+#>   start end    risk   lower   upper
+#> 1     0 Inf 33.2386 33.1989 33.2784
+#> 2    50 Inf 32.1052 32.0634 32.1470
+#> 3    70 Inf 23.3479 23.3008 23.3951
+```
+
+## Traditional cumulative risk
+
+Traditional cumulative risk can be calculated directly with `calc_ltr()`
+by setting `risk_func = "cumulative"`, or with the lower-level
+`cumulative()` and `get_risk()` workflow. Unlike DevCan, Wun, or AMP,
+this approach does not account for competing mortality.
+
+``` r
+calc_ltr(
+  ages = all_sites$ages,
+  cancer = all_sites$cancer,
+  cancer_death = all_sites$cancer_death,
+  death = all_sites$death,
+  pys = all_sites$pys,
+  risk_func = "cumulative",
+  type = "developing",
+  maj_method = "constant",
+  ci_method = "delta",
+  age_start = 0,
+  age_end = c(75, 85),
+  digits = 4
+)
+#>   start end    risk   lower   upper
+#> 1     0  75 31.9419 31.9007 31.9831
+#> 2     0  85 42.4122 42.3572 42.4673
+
+cumu_developing <- cumulative(
+  ages = all_sites$ages,
+  cancer = all_sites$cancer,
+  cancer_death = all_sites$cancer_death,
+  death = all_sites$death,
+  pys = all_sites$pys,
+  type = "developing",
+  maj_method = "constant"
+)
+
+get_risk(cumu_developing, age_start = 0, age_end = c(75, 85))
+#> [1] 0.3194190 0.4241222
+```
+
+## Learn more
+
+For a detailed introduction to the implemented methods, confidence
+interval calculations, and additional examples, see the package
+vignette:
+
+``` r
+vignette("use-ltRISK", package = "ltRISK")
 ```
